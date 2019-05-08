@@ -19,26 +19,26 @@ typedef struct{
 typedef struct {
     CmdHead head;
     uint8_t data[256]; //if cmd data
-    void *  data_ptr;  //if map or large data
+   // void *  data_ptr;  //if map or large data
     CmdTail  tail;
 } CmdMessage;
 
-#define CMD_SET_STABLE_MODE (0x00)
-typedef struct {
-    bool stable; 
-} SetGimbalStable;
+#define CMD_SEND_ID (0x00)
+#define CMD_RECEIVE_ID (0x80)
 
-#define CMD_SET_GIMBAL_SPEED (0x01)
 typedef struct {
-    float v_yaw; //x -127~+127
-    float v_pitch;  //y -127~+127
-} SetGimbalSpeed;
+    int32_t mode;
+    float yaw;
+    float pitch;
+} SetGimbalData;
 
-#define CMD_SET_GIMBAL_POSITION (0x02)
-typedef struct { 
-    float p_yaw; 
+typedef struct {
+    float p_yaw;
     float p_pitch;
-} SetGimbalPosition;
+    float v_yaw; 
+    float v_pitch;
+} GetGimbalData;
+
 
 
 const uint16_t crc_tab16[] = {

@@ -91,7 +91,7 @@ CmdMessage *Receive(){
             uint16_t crc=CRC16Calc(CRCReceiveData,sizeof(CRCReceiveData));
             uint16_t crc_rec=recv_container->tail.crc_h<<8 | recv_container->tail.crc_l;
             
-            ROS_INFO("crc=|%x|,tail=|%x|",crc,crc_rec);
+            //ROS_INFO("crc=|%x|,tail=|%x|",crc,crc_rec);
             
 
             if (crc==crc_rec){// tail CRC check
@@ -149,7 +149,7 @@ bool Send(CmdMessage &send_container)
 
     
     uint16_t send_crc=CRC16Calc(cmdSendData,sizeof(CmdHead)+send_container.head.len);
-    ROS_INFO("CRCSEND |%x|,CRCSEND size |%d| ",send_crc,sizeof(CmdHead)+send_container.head.len);
+   // ROS_INFO("CRCSEND |%x|,CRCSEND size |%d| ",send_crc,sizeof(CmdHead)+send_container.head.len);
 
     cmdSendData[sizeof(CmdHead)+send_container.head.len]=(send_crc&0xff);//crc_h
     cmdSendData[sizeof(CmdHead)+send_container.head.len+1]=(send_crc>>8);//crc_l

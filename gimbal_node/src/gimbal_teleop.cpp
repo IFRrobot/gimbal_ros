@@ -8,9 +8,6 @@
 #include "thread"
 using namespace std;
 
-#define CMD_SET_STABLE_MODE 0x00
-#define CMD_SET_GIMBAL_SPEED 0x01
-#define CMD_SET_GIMBAL_POSITION 0x02
 
 
 #define KEYCODE_W 0x77
@@ -18,13 +15,11 @@ using namespace std;
 #define KEYCODE_S 0x73
 #define KEYCODE_D 0x64
 
-
-#define KEYCODE_A_CAP 0x41
-#define KEYCODE_D_CAP 0x44
-#define KEYCODE_S_CAP 0x53
-#define KEYCODE_W_CAP 0x57
-
 #define KEYCODE_ENTER_CAP 0x0A
+
+int stable_mode=0;
+int pitch_mode=0;
+int yaw_mode=0;
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -44,11 +39,12 @@ gimbal_node::gimbal gimbal_control;
   double yaw_speed=0;
   double pitch_position=0;
   double yaw_position=0;
-  double p_key_value=0.2;
-  double v_key_value=0.02;
+  double p_key_value=5;
+  double v_key_value=2;
   bool stable=true;
   ros::Publisher gimbal_control_pub_;
-
+ double secs;
+ char last_c;
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "teleop_turtle");
@@ -60,8 +56,8 @@ int main(int argc, char** argv)
   t1.detach();
   signal(SIGINT,quit);
   
-  char c,last_c;
-
+  char c;
+  char s[3];
 
 
 // get the console in raw mode                                                              
@@ -75,100 +71,113 @@ int main(int argc, char** argv)
 
   puts("Reading from keyboard");
   puts("---------------------------");
-  puts("Use wasd to control the gimbal position.");
-  puts("Use WASD to control the gimbal speed.");
-  puts("Use enter to switch the gimbal stable mode.");
+  puts("stable pitch yaw");
+  puts("Use enter to switch the mode.");
 
   
   while(ros::ok())
   {
     // get the next event from the keyboard  
-   double secs =ros::Time::now().toSec();
+    secs =ros::Time::now().toSec();
 
     if(read(kfd, &c,1)< 0)
     {
       perror("read():");
       exit(-1);
     }
-  secs=ros::Time::now().toSec()-secs;
+  /*secs=ros::Time::now().toSec()-secs;
   if(secs>0.2)
   {
   last_c=0x00;
   pitch_speed=0;
   yaw_speed=0;
-  }
+  ROS_INFO("clear");
+  }*/
   //ROS_INFO("value: 0x%02X\n", c);
 
     switch(c)
     {
       case KEYCODE_A:
-	      yaw_position=yaw_position+p_key_value;    
-        gimbal_control.mode=CMD_SET_GIMBAL_POSITION;
-        dirty = true;
-        break;
+      if(yaw_mode==0) 
+      {
+      yaw_position=yaw_position+p_key_value;    
+      yaw_speed=0;
+      }
+      if(yaw_mode==1)
+      {
+        if(last_c==KEYCODE_A) yaw_speed=yaw_speed+v_key_value;
+        else 
+        { 
+        yaw_speed=0;
+        }
+        yaw_position=0;
+      }
+      break;
+
       case KEYCODE_D:
-	      yaw_position=yaw_position-p_key_value;  
-        gimbal_control.mode=CMD_SET_GIMBAL_POSITION;
-        dirty = true;  
-        break;
+	    if(yaw_mode==0) 
+      {
+      yaw_position=yaw_position-p_key_value;  
+      yaw_speed=0;
+      }
+      if(yaw_mode==1)
+      {
+        if(last_c==KEYCODE_D) yaw_speed=yaw_speed-v_key_value; 
+        else 
+        { 
+        yaw_speed=0;
+        }
+        yaw_position=0;
+      }
+      break;
+      
+   
+    
       case KEYCODE_W:
-	      pitch_position=pitch_position+p_key_value;
-        gimbal_control.mode=CMD_SET_GIMBAL_POSITION;
-        dirty = true;
+	      if(pitch_mode==0)
+        {
+        pitch_position=pitch_position+p_key_value;
+        pitch_speed=0;
+        }
+        if(pitch_mode==1)
+        {
+          if(last_c==KEYCODE_W) pitch_speed=pitch_speed+v_key_value;
+          else 
+          { 
+          pitch_speed=0;
+          }
+          pitch_position=0;
+        }
         break;
       case KEYCODE_S:
-	      pitch_position=pitch_position-p_key_value;
-        gimbal_control.mode=CMD_SET_GIMBAL_POSITION;
-        dirty = true;
-        break;
-
-      
-      case KEYCODE_A_CAP:
-        if(last_c==KEYCODE_A_CAP) yaw_speed=yaw_speed+v_key_value;
-        else 
-        { 
-        yaw_speed=0;
+	      if(pitch_mode==0) 
+        {
+        pitch_position=pitch_position-p_key_value;
         pitch_speed=0;
         }
-        gimbal_control.mode=CMD_SET_GIMBAL_SPEED;
-        dirty = true; 
-        break;
-      case KEYCODE_D_CAP:
-	      if(last_c==KEYCODE_D_CAP) yaw_speed=yaw_speed-v_key_value; 
-        else 
-        { 
-        yaw_speed=0;
-        pitch_speed=0;
+        if(pitch_mode==1)
+        {
+          if(last_c==KEYCODE_S) pitch_speed=pitch_speed-v_key_value;
+          else 
+          { 
+          pitch_speed=0;
+          }
+          pitch_position=0;
         }
-        gimbal_control.mode=CMD_SET_GIMBAL_SPEED;
-        dirty = true; 
         break;
-      case KEYCODE_W_CAP:
-        if(last_c==KEYCODE_W_CAP) pitch_speed=pitch_speed+v_key_value;
-        else 
-        { 
-        yaw_speed=0;
-        pitch_speed=0;
-        }
-        gimbal_control.mode=CMD_SET_GIMBAL_SPEED;
-        dirty = true; 
-        break;
-      case KEYCODE_S_CAP:
-	      if(last_c==KEYCODE_S_CAP) pitch_speed=pitch_speed-v_key_value;
-        else 
-        { 
-        yaw_speed=0;
-        pitch_speed=0;
-        }
-        gimbal_control.mode=CMD_SET_GIMBAL_SPEED;
-        dirty = true;
-        break;
-
+    
       case KEYCODE_ENTER_CAP:
-        stable=!stable;
-        gimbal_control.mode=CMD_SET_STABLE_MODE;
-        dirty = true; 
-        break;
+      printf("input:\n");
+      fgets(s,4,stdin);
+      if(s[0]=='1') stable_mode=1;
+      if(s[0]=='0') stable_mode=0;
+      if(s[1]=='1') pitch_mode=1;
+      if(s[1]=='0') pitch_mode=0;
+      if(s[2]=='1') yaw_mode=1;
+      if(s[2]=='0') yaw_mode=0;    
+      printf("stable:%d pitch:%d yaw:%d\n",stable_mode,pitch_mode,yaw_mode);
+        break; 
+      dirty = true; 
     }
    last_c=c;
   }
@@ -180,58 +189,37 @@ void ros_pub()
   ros::Rate loop_rate(10);
   while(ros::ok())
   {
-    
+    secs=ros::Time::now().toSec()-secs;
+    if(secs>0.2)
+    {
+    last_c=0x00;
+    pitch_speed=0;
+    yaw_speed=0;
+    //ROS_INFO("clear");
+    }
+
       if(pitch_position>=35) pitch_position=35;
       if(pitch_position<=-55)pitch_position=-55;
       if(yaw_position>=125) yaw_position=125;
       if(yaw_position<=-125) yaw_position=-125;  
-      if(pitch_speed>=1) pitch_speed=1;
-      if(pitch_speed<=-1)pitch_speed=-1;
-      if(yaw_speed>=1) yaw_speed=1;
-      if(yaw_speed<=-1) yaw_speed=-1; 
+      if(pitch_speed>=10) pitch_speed=10;
+      if(pitch_speed<=-10)pitch_speed=-10;
+      if(yaw_speed>=10) yaw_speed=10;
+      if(yaw_speed<=-10) yaw_speed=-10; 
 
-      if(gimbal_control.mode==CMD_SET_STABLE_MODE)
-      {
-      gimbal_control.stable_mode=stable;
-      gimbal_control.pitch_speed=0;
-      gimbal_control.yaw_speed =0;
-      gimbal_control.pitch_position=0;
-      gimbal_control.yaw_position =0;
-      pitch_position=0;
-      yaw_position=0;
-      pitch_speed=0;
-      yaw_speed=0;
-      ROS_INFO("stable=%d",gimbal_control.stable_mode);
-      }
-
-      if(gimbal_control.mode==CMD_SET_GIMBAL_POSITION)
-      {
-      gimbal_control.pitch_speed=0;
-      gimbal_control.yaw_speed =0;
-      gimbal_control.pitch_position=pitch_position;
-      gimbal_control.yaw_position =yaw_position;
-      pitch_speed=0;
-      yaw_speed=0;
-      ROS_INFO("P_yaw=%f,P_pitch=%f",yaw_position,pitch_position);
-      }
-
-      if(gimbal_control.mode==CMD_SET_GIMBAL_SPEED)
-      {
+      gimbal_control.mode=(stable_mode*4)+(pitch_mode*2)+yaw_mode;
+      gimbal_control.stable_mode=stable_mode;
       gimbal_control.pitch_speed=pitch_speed;
       gimbal_control.yaw_speed =yaw_speed;
-      gimbal_control.pitch_position=0;
-      gimbal_control.yaw_position =0;
-      ROS_INFO("V_yaw=%f,V_pitch=%f",yaw_speed,pitch_speed);
-      }
+      gimbal_control.pitch_position=pitch_position;
+      gimbal_control.yaw_position =yaw_position;
+     
       gimbal_control_pub_.publish(gimbal_control);    
-     if(dirty==false)
-     {
-     pitch_speed=0;
-     yaw_speed=0;
-     }
-     dirty=false;
+
+     
     ros::spinOnce();
     loop_rate.sleep();
+  
   }
 }
 
